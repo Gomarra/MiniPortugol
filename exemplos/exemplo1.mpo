@@ -1,0 +1,8 @@
+INT x;
+
+se(x == 1){
+    escreva("Olá Mundo!");
+}
+senao{
+    escreva("Tchau Mundo!");
+}
