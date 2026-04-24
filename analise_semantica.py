@@ -2,11 +2,11 @@
 import logging
 import sys # Importar sys para print de depuração
 from antlr4 import ParseTreeWalker
-from BASIQuinhoParser import BASIQuinhoParser
-from BASIQuinhoListener import BASIQuinhoListener
+from miniportugolParser import miniportugolParser
+from miniportugolListener import miniportugolListener
 from erro import Erro
 
-class BASIQuinhoSemanticoListenerImpl(BASIQuinhoListener):
+class miniportugolSemanticoListenerImpl(miniportugolListener):
     # ... (init, _registrar_variavel_declarada, _verificar_uso_variavel como antes) ...
     def __init__(self, erro_handler: Erro):
         self.erro_handler = erro_handler
@@ -48,41 +48,41 @@ class BASIQuinhoSemanticoListenerImpl(BASIQuinhoListener):
         self.logger.info(f"Variável '{nome_var}' (tipo: {var_info['type_name']}) usada na linha {line}, coluna {column}.")
         return var_info["type_name"]
 
-    def exitNumber(self, ctx: BASIQuinhoParser.NumberContext):
-        print(f"DEBUG_PRINT_CALL: Entrando em exitNumber para '{ctx.getText() if ctx and hasattr(ctx, 'getText') else 'CTX_INVALIDO'}'", file=sys.stderr)
+    def exitNumero(self, ctx: miniportugolParser.NumeroContext):
+        print(f"DEBUG_PRINT_CALL: Entrando em exitNumero para '{ctx.getText() if ctx and hasattr(ctx, 'getText') else 'CTX_INVALIDO'}'", file=sys.stderr)
         ctx.type_name = "NUMERO"
-        self.logger.info(f"EXIT_NUMBER: ctx ID: {id(ctx)}, Texto: '{ctx.getText()}', Tipo definido: {ctx.type_name}")
+        self.logger.info(f"EXIT_NUMERO: ctx ID: {id(ctx)}, Texto: '{ctx.getText()}', Tipo definido: {ctx.type_name}")
 
-    def exitString(self, ctx: BASIQuinhoParser.StringContext):
+    def exitString(self, ctx: miniportugolParser.StringContext):
         print(f"DEBUG_PRINT_CALL: Entrando em exitString para '{ctx.getText() if ctx and hasattr(ctx, 'getText') else 'CTX_INVALIDO'}'", file=sys.stderr)
         ctx.type_name = "STRING"
         self.logger.info(f"EXIT_STRING: ctx ID: {id(ctx)}, Texto: '{ctx.getText()}', Tipo definido: {ctx.type_name}")
 
-    def exitVariable(self, ctx: BASIQuinhoParser.VariableContext):
-        print(f"DEBUG_PRINT_CALL: Entrando em exitVariable para '{ctx.getText() if ctx and hasattr(ctx, 'getText') else 'CTX_INVALIDO'}'", file=sys.stderr)
+    def exitVariavel(self, ctx: miniportugolParser.VariavelContext):
+        print(f"DEBUG_PRINT_CALL: Entrando em exitVariavel para '{ctx.getText() if ctx and hasattr(ctx, 'getText') else 'CTX_INVALIDO'}'", file=sys.stderr)
         nome_var = ctx.ID().getText()
         id_symbol = ctx.ID().getSymbol()
         tipo_var = self._verificar_uso_variavel(nome_var, id_symbol) 
         ctx.type_name = tipo_var if tipo_var else "ERRO_TIPO"
         if id_symbol and tipo_var : 
             id_symbol.type_name = ctx.type_name 
-        self.logger.info(f"EXIT_VARIABLE: ctx ID: {id(ctx)}, Texto: '{nome_var}', Tipo obtido: {ctx.type_name}")
+        self.logger.info(f"EXIT_VARIAVEL: ctx ID: {id(ctx)}, Texto: '{nome_var}', Tipo obtido: {ctx.type_name}")
 
-    def exitParentheses(self, ctx: BASIQuinhoParser.ParenthesesContext):
-        print(f"DEBUG_PRINT_CALL: Entrando em exitParentheses para '{ctx.getText() if ctx and hasattr(ctx, 'getText') else 'CTX_INVALIDO'}'", file=sys.stderr)
+    def exitParenteses(self, ctx: miniportugolParser.ParentesesContext):
+        print(f"DEBUG_PRINT_CALL: Entrando em exitParenteses para '{ctx.getText() if ctx and hasattr(ctx, 'getText') else 'CTX_INVALIDO'}'", file=sys.stderr)
         # Restante da lógica como antes...
-        self.logger.info(f"EXIT_PARENTHESES: Entrando para '{ctx.getText()}'. ctx ID: {id(ctx)}.")
+        self.logger.info(f"EXIT_PARENTESES: Entrando para '{ctx.getText()}'. ctx ID: {id(ctx)}.")
         inner_expr_ctx = ctx.expr()
         if hasattr(inner_expr_ctx, 'type_name'):
             ctx.type_name = inner_expr_ctx.type_name
-            self.logger.info(f"EXIT_PARENTHESES: Tipo propagado de expr interna: {ctx.type_name}")
+            self.logger.info(f"EXIT_PARENTESES: Tipo propagado de expr interna: {ctx.type_name}")
         else:
-            self.logger.error(f"EXIT_PARENTHESES: Expressão interna de '{ctx.getText()}' não tem 'type_name'.")
+            self.logger.error(f"EXIT_PARENTESES: Expressão interna de '{ctx.getText()}' não tem 'type_name'.")
             ctx.type_name = "ERRO_TIPO"
-        self.logger.info(f"EXIT_PARENTHESES: Texto: '{ctx.getText()}', Tipo final: {ctx.type_name}")
+        self.logger.info(f"EXIT_PARENTESES: Texto: '{ctx.getText()}', Tipo final: {ctx.type_name}")
 
 
-    def exitFactor(self, ctx: BASIQuinhoParser.FactorContext):
+    def exitFactor(self, ctx: miniportugolParser.FactorContext):
         # Adiciona o print de depuração como a PRIMEIRA linha
         print(f"DEBUG_PRINT_CALL: Entrando em exitFactor para '{ctx.getText() if ctx and hasattr(ctx, 'getText') else 'CTX_INVALIDO'}'", file=sys.stderr)
         # Restante da lógica como antes...
@@ -90,10 +90,10 @@ class BASIQuinhoSemanticoListenerImpl(BASIQuinhoListener):
         if hasattr(ctx, 'type_name'):
             self.logger.info(f"EXIT_FACTOR: 'type_name' já existe e é '{ctx.type_name}'. (Definido por listener específico como exitString).")
         else:
-            self.logger.error(f"EXIT_FACTOR: ERRO DE LÓGICA DO LISTENER! Nó Factor '{ctx.getText()}' (tipo {type(ctx)}) não teve 'type_name' definido. Verifique os listeners das alternativas de 'factor' (exitString, exitNumber, etc.).")
+            self.logger.error(f"EXIT_FACTOR: ERRO DE LÓGICA DO LISTENER! Nó Factor '{ctx.getText()}' (tipo {type(ctx)}) não teve 'type_name' definido. Verifique os listeners das alternativas de 'factor' (exitString, exitNumero, etc.).")
             ctx.type_name = "ERRO_FACTOR_INESPERADO"
 
-    def exitTerm(self, ctx: BASIQuinhoParser.TermContext):
+    def exitTerm(self, ctx: miniportugolParser.TermContext):
         # Adiciona o print de depuração como a PRIMEIRA linha
         print(f"DEBUG_PRINT_CALL: Entrando em exitTerm para '{ctx.getText() if ctx and hasattr(ctx, 'getText') else 'CTX_INVALIDO'}'", file=sys.stderr)
         # Restante da lógica como antes...
@@ -126,24 +126,24 @@ class BASIQuinhoSemanticoListenerImpl(BASIQuinhoListener):
         self.logger.info(f"EXIT_TERM: Tipo final inferido para Term '{ctx.getText()}': {ctx.type_name}")
 
 
-    def exitExpr(self, ctx: BASIQuinhoParser.ExprContext):
+    def exitExpr(self, ctx: miniportugolParser.ExprContext):
         # Adiciona o print de depuração como a PRIMEIRA linha
         print(f"DEBUG_PRINT_CALL: Entrando em exitExpr para '{ctx.getText() if ctx and hasattr(ctx, 'getText') else 'CTX_INVALIDO'}'", file=sys.stderr)
         # Restante da lógica como antes...
         self.logger.info(f"EXIT_EXPR: Entrando para Expr '{ctx.getText()}'. ctx ID: {id(ctx)}.")
         current_type = "ERRO_TIPO"
-        primeiro_termo = ctx.term(0)
+        primeiro_termo = ctx.termo(0)
         if primeiro_termo:
             self.logger.info(f"EXIT_EXPR: Acessando primeiro_termo '{primeiro_termo.getText()}' com ID: {id(primeiro_termo)}")
             if hasattr(primeiro_termo, 'type_name'): current_type = primeiro_termo.type_name; self.logger.info(f"EXIT_EXPR: primeiro_termo tinha 'type_name': {current_type}")
             else: self.logger.error(f"EXIT_EXPR: ERRO DE PROPAGAÇÃO! Primeiro termo de Expr '{ctx.getText()}' (texto: '{primeiro_termo.getText()}') NÃO tem 'type_name'.")
-        else: self.logger.error(f"EXIT_EXPR: ERRO ESTRUTURAL! Expr '{ctx.getText()}' não tem primeiro termo ctx.term(0).")
+        else: self.logger.error(f"EXIT_EXPR: ERRO ESTRUTURAL! Expr '{ctx.getText()}' não tem primeiro termo ctx.termo(0).")
 
-        num_terms = len(ctx.term())
+        num_terms = len(ctx.termo())
         if num_terms > 1 and current_type != "ERRO_TIPO" and not current_type.startswith("ERRO_"): 
             for i in range(num_terms - 1):
                 op_node = ctx.getChild(i * 2 + 1); op_text = op_node.getText()
-                right_operand_ctx = ctx.term(i + 1)
+                right_operand_ctx = ctx.termo(i + 1)
                 right_operand_type = "ERRO_TIPO" 
                 if hasattr(right_operand_ctx, 'type_name'): right_operand_type = right_operand_ctx.type_name
                 else: self.logger.error(f"EXIT_EXPR: ERRO DE PROPAGAÇÃO! Termo direito (índice {i+1}, texto: '{right_operand_ctx.getText()}') de Expr '{ctx.getText()}' não tem 'type_name'.")
@@ -155,7 +155,7 @@ class BASIQuinhoSemanticoListenerImpl(BASIQuinhoListener):
         self.logger.info(f"EXIT_EXPR: Tipo final inferido para Expr '{ctx.getText()}': {ctx.type_name}")
 
     # --- Métodos de Statement ---
-    def exitLetStatement(self, ctx:BASIQuinhoParser.LetStatementContext): 
+    def exitLetStatement(self, ctx:miniportugolParser.LetStatementContext): 
         print(f"DEBUG_PRINT_CALL: Entrando em exitLetStatement para '{ctx.getText() if ctx and hasattr(ctx, 'getText') else 'CTX_INVALIDO'}'", file=sys.stderr)
         actual_let_stmt_ctx = ctx.letStmt() 
         nome_var = actual_let_stmt_ctx.ID().getText()
@@ -173,7 +173,7 @@ class BASIQuinhoSemanticoListenerImpl(BASIQuinhoListener):
             self._registrar_variavel_declarada(nome_var, tipo_expr, actual_let_stmt_ctx)
         if nome_var in self.escopo_atual: self.escopo_atual[nome_var]["usada_como_alvo"] = True
 
-    def exitInputStatement(self, ctx:BASIQuinhoParser.InputStatementContext): 
+    def exitInputStatement(self, ctx:miniportugolParser.InputStatementContext): 
         print(f"DEBUG_PRINT_CALL: Entrando em exitInputStatement para '{ctx.getText() if ctx and hasattr(ctx, 'getText') else 'CTX_INVALIDO'}'", file=sys.stderr)
         actual_input_stmt_ctx = ctx.inputStmt() 
         nome_var = actual_input_stmt_ctx.ID().getText()
@@ -186,7 +186,7 @@ class BASIQuinhoSemanticoListenerImpl(BASIQuinhoListener):
             self._registrar_variavel_declarada(nome_var, tipo_input, actual_input_stmt_ctx)
         if nome_var in self.escopo_atual: self.escopo_atual[nome_var]["usada_como_alvo"] = True
 
-    def exitPrintStatement(self, ctx:BASIQuinhoParser.PrintStatementContext): 
+    def exitPrintStatement(self, ctx:miniportugolParser.PrintStatementContext): 
         print(f"DEBUG_PRINT_CALL: Entrando em exitPrintStatement para '{ctx.getText() if ctx and hasattr(ctx, 'getText') else 'CTX_INVALIDO'}'", file=sys.stderr)
         self.logger.info(f"DEBUG_PRINT: Entrando em exitPrintStatement. Tipo do ctx: {type(ctx)}, ID do ctx: {id(ctx)}")
         actual_print_stmt_ctx = None
@@ -212,7 +212,7 @@ class BASIQuinhoSemanticoListenerImpl(BASIQuinhoListener):
             if tipo_expr_item.startswith("ERRO_"):
                 self.erro_handler.registrar_erro("Analisador Semântico", expr_item_ctx.start.line, expr_item_ctx.start.column + 1, f"Expressão '{expr_item_ctx.getText()}' no comando PRINT contém erro de tipo ou tipo não pôde ser determinado ({tipo_expr_item}).", "SEMANTICO")
 
-    def exitProg(self, ctx:BASIQuinhoParser.ProgContext):
+    def exitProg(self, ctx:miniportugolParser.ProgContext):
         print(f"DEBUG_PRINT_CALL: Entrando em exitProg", file=sys.stderr) # Adicionado para consistência
         self.logger.info("--- Verificação Final Semântica ---")
         for nome_var, info_var in self.escopo_atual.items():
@@ -232,7 +232,7 @@ class AnaliseSemantica:
         if not ast_parser: self.logger.error("AST não fornecida pelo parser. Análise semântica não pode prosseguir."); return None
         if self.erro_handler.houve_erro_fatal(): self.logger.warning("Erros fatais detectados em fases anteriores. Análise semântica pulada."); return ast_parser 
         try:
-            listener_semantico = BASIQuinhoSemanticoListenerImpl(self.erro_handler)
+            listener_semantico = miniportugolSemanticoListenerImpl(self.erro_handler)
             walker = ParseTreeWalker()
             walker.walk(listener_semantico, ast_parser) 
             self.ast_anotada = listener_semantico.ast_anotada 

@@ -13,7 +13,7 @@ def setup_logger():
     )
     # Retorna um logger nomeado para o compilador principal, se desejado,
     # ou apenas configura o logger raiz.
-    return logging.getLogger("BASIQuinhoCompilador")
+    return logging.getLogger("miniportugolCompilador")
 
 # Configura o logger quando este módulo é importado pela primeira vez.
 # As classes individuais podem obter seus próprios loggers com logging.getLogger(__name__)

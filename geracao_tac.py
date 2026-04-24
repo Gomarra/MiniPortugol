@@ -1,7 +1,7 @@
 # geracao_tac.py
 import logging
 from erro import Erro
-from BASIQuinhoParser import BASIQuinhoParser 
+from miniportugolParser import miniportugolParser
 
 class GeracaoTAC:
     def __init__(self, erro_handler: Erro):
@@ -20,26 +20,26 @@ class GeracaoTAC:
         # Removido o log INFO inicial daqui para reduzir verbosidade, logs de casos específicos são mais úteis.
         # self.logger.info(f"GER_TAC_EXPR: Entrando para '{node_text_for_log}', tipo de nó: {type(expr_node_ctx)}")
 
-        if isinstance(expr_node_ctx, BASIQuinhoParser.NumberContext):
+        if isinstance(expr_node_ctx, miniportugolParser.NumberContext):
             val = expr_node_ctx.NUMBER().getText()
             self.logger.info(f"GER_TAC_EXPR: Number literal: {val}")
             return val
         
-        if isinstance(expr_node_ctx, BASIQuinhoParser.StringContext):
+        if isinstance(expr_node_ctx, miniportugolParser.StringContext):
             val = expr_node_ctx.STRING().getText()
             self.logger.info(f"GER_TAC_EXPR: String literal: {val}")
             return val
             
-        if isinstance(expr_node_ctx, BASIQuinhoParser.VariableContext):
+        if isinstance(expr_node_ctx, miniportugolParser.VariableContext):
             val = expr_node_ctx.ID().getText()
             self.logger.info(f"GER_TAC_EXPR: Variable: {val}")
             return val
             
-        if isinstance(expr_node_ctx, BASIQuinhoParser.ParenthesesContext):
+        if isinstance(expr_node_ctx, miniportugolParser.ParenthesesContext):
             self.logger.info(f"GER_TAC_EXPR: Parentheses, processando expr interna '{expr_node_ctx.expr().getText()}'...")
             return self._gerar_tac_expr_recursivo(expr_node_ctx.expr())
 
-        if isinstance(expr_node_ctx, BASIQuinhoParser.TermContext) or isinstance(expr_node_ctx, BASIQuinhoParser.ExprContext):
+        if isinstance(expr_node_ctx, miniportugolParser.TermContext) or isinstance(expr_node_ctx, miniportugolParser.ExprContext):
             children = expr_node_ctx.children
             operando_esq_ctx = children[0]
             operando_esq_nome = self._gerar_tac_expr_recursivo(operando_esq_ctx)
@@ -63,7 +63,7 @@ class GeracaoTAC:
                 operando_esq_nome = temp_dest
             return operando_esq_nome
 
-        if isinstance(expr_node_ctx, BASIQuinhoParser.FactorContext):
+        if isinstance(expr_node_ctx, miniportugolParser.FactorContext):
              if expr_node_ctx.getChildCount() == 1:
                  return self._gerar_tac_expr_recursivo(expr_node_ctx.getChild(0))
 
@@ -88,13 +88,13 @@ class GeracaoTAC:
                 
                 self.logger.info(f"GER_TAC_STMT_DEBUG: Processando statement. Tipo do ctx_da_label: {type(ctx_da_label)}")
 
-                if isinstance(ctx_da_label, BASIQuinhoParser.InputStmtContext):
+                if isinstance(ctx_da_label, miniportugolParser.InputStmtContext):
                     # ctx_da_label JÁ É o InputStmtContext (contexto da regra inputStmt)
                     var_nome = ctx_da_label.ID().getText() # Acesso direto
                     self.codigo_tac.append(f"INPUT {var_nome}")
                     self.logger.info(f"TAC: INPUT {var_nome}")
 
-                elif isinstance(ctx_da_label, BASIQuinhoParser.PrintStmtContext):
+                elif isinstance(ctx_da_label, miniportugolParser.PrintStmtContext):
                     # ctx_da_label JÁ É o PrintStmtContext (contexto da regra printStmt)
                     # Acessamos exprList diretamente dele
                     if hasattr(ctx_da_label, 'exprList') and ctx_da_label.exprList() and hasattr(ctx_da_label.exprList(), 'expr'):
@@ -110,7 +110,7 @@ class GeracaoTAC:
                         self.erro_handler.registrar_erro("Gerador TAC", ctx_da_label.start.line, ctx_da_label.start.column + 1, "Estrutura interna do PRINT inválida para TAC.", "TAC")
 
                 
-                elif isinstance(ctx_da_label, BASIQuinhoParser.LetStmtContext):
+                elif isinstance(ctx_da_label, miniportugolParser.LetStmtContext):
                     # ctx_da_label JÁ É o LetStmtContext (contexto da regra letStmt)
                     var_nome = ctx_da_label.ID().getText() # Acesso direto
                     expr_node_atribuicao = ctx_da_label.expr() # Acesso direto

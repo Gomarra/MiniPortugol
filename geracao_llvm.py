@@ -12,7 +12,7 @@ class GeracaoLLVM:
         self.main_body_instructions = []
         self.global_definitions = []
         self.reg_count = 0
-        self.var_map = {}  # Mapeia nome_basiquinho -> {"ptr_llvm": %ptr.nome, "type_llvm": "i32*" ou "ptr*"}
+        self.var_map = {}  # Mapeia nome_miniportugol -> {"ptr_llvm": %ptr.nome, "type_llvm": "i32*" ou "ptr*"}
         self.global_str_count = 0
 
     def _nova_reg(self) -> str:
@@ -26,13 +26,13 @@ class GeracaoLLVM:
             sanitized = "v_" + sanitized
         return sanitized
 
-    def _get_var_alloc_instruction(self, var_name_basiquinho: str, llvm_type: str = "i32") -> str:
+    def _get_var_alloc_instruction(self, var_name_miniportugol: str, llvm_type: str = "i32") -> str:
         """Prepara a instrução alloca para uma variável, mas não a adiciona ainda."""
-        if var_name_basiquinho not in self.var_map:
-            llvm_var_name_clean = self._sanitize_llvm_name(var_name_basiquinho)
+        if var_name_miniportugol not in self.var_map:
+            llvm_var_name_clean = self._sanitize_llvm_name(var_name_miniportugol)
             ptr_reg = f"%ptr.{llvm_var_name_clean}"
             # Guarda o tipo LLVM do ponteiro (ex: i32*, ou i8** se for ponteiro para string)
-            self.var_map[var_name_basiquinho] = {"ptr_llvm": ptr_reg, "llvm_type_pointed_to": llvm_type}
+            self.var_map[var_name_miniportugol] = {"ptr_llvm": ptr_reg, "llvm_type_pointed_to": llvm_type}
             
             type_to_alloca = llvm_type
             align = 4
@@ -40,9 +40,9 @@ class GeracaoLLVM:
                 type_to_alloca = "i8*" # aloca um ponteiro para char (i8*)
                 align = 8 # Ponteiros são geralmente alinhados a 8 em 64-bit
             
-            return f"  {ptr_reg} = alloca {type_to_alloca}, align {align} ; Var {var_name_basiquinho} (tipo {type_to_alloca})"
+            return f"  {ptr_reg} = alloca {type_to_alloca}, align {align} ; Var {var_name_miniportugol} (tipo {type_to_alloca})"
         # Se já existe, apenas retorna o ponteiro já conhecido
-        return self.var_map[var_name_basiquinho]["ptr_llvm"]
+        return self.var_map[var_name_miniportugol]["ptr_llvm"]
 
 
     def _nova_global_string_const(self, text_content: str) -> str:
@@ -166,14 +166,14 @@ class GeracaoLLVM:
                     continue
 
                 if comando_ou_destino == "INPUT":
-                    var_nome_basiquinho = partes_rhs[0]
+                    var_nome_miniportugol = partes_rhs[0]
                     # Garante que a variável seja alocada (como i32 por padrão para INPUT)
-                    alloc_instr = self._get_var_alloc_instruction(var_nome_basiquinho, "i32")
+                    alloc_instr = self._get_var_alloc_instruction(var_nome_miniportugol, "i32")
                     if not alloc_instr.startswith("%ptr"): # Se _get_var_alloc_instruction retornou uma instrução de alocação nova
                         if alloc_instr not in alloc_instructions: alloc_instructions.append(alloc_instr)
-                    var_ptr = self.var_map[var_nome_basiquinho]["ptr_llvm"]
+                    var_ptr = self.var_map[var_nome_miniportugol]["ptr_llvm"]
 
-                    self.main_body_instructions.append(f"  ; TAC: INPUT {var_nome_basiquinho}")
+                    self.main_body_instructions.append(f"  ; TAC: INPUT {var_nome_miniportugol}")
                     scan_call_reg = self._nova_reg()
                     self.main_body_instructions.append(f"  {scan_call_reg} = call i32 (i8*, ...) @scanf(i8* getelementptr inbounds ([3 x i8], [3 x i8]* @.str.scan.num.fmt, i64 0, i64 0), i32* {var_ptr})")
 

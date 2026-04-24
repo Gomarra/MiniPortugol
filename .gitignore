@@ -6,6 +6,9 @@ __pycache__/
 # C extensions
 *.so
 
+# Antlr stuff
+.antlr
+
 # Distribution / packaging
 .Python
 build/
@@ -192,3 +195,7 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+
+# Miniportugol compiler stuff
+exemplos/*.dot
+exemplos/*.svg

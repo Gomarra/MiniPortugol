@@ -6,7 +6,7 @@ from compilador import Compilador
 
 if __name__ == "__main__":
     # O logger já foi configurado por logger_config.py
-    main_logger = logging.getLogger("BASIQuinhoCompilador") # Pega o logger principal
+    main_logger = logging.getLogger("miniportugolCompilador") # Pega o logger principal
 
     if len(sys.argv) < 2:
         main_logger.error("Uso: python main.py <arquivo_fonte.bsq>")

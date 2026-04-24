@@ -2,7 +2,7 @@
 import logging
 import subprocess
 from antlr4 import CommonTokenStream
-from BASIQuinhoParser import BASIQuinhoParser # Arquivo gerado pelo ANTLR
+from miniportugolParser import miniportugolParser # Arquivo gerado pelo ANTLR
 from erro import Erro, CustomErrorListener # Do nosso arquivo erro.py
 
 class AnaliseSintatica:
@@ -17,11 +17,11 @@ class AnaliseSintatica:
             self.erro_handler.registrar_erro("Analisador Sintático", 0, 0, "Stream de tokens não fornecida.", tipo_erro="SINTATICO")
             return None
         try:
-            parser = BASIQuinhoParser(token_stream)
+            parser = miniportugolParser(token_stream)
             parser.removeErrorListeners()
             parser.addErrorListener(CustomErrorListener(self.erro_handler, "Analisador Sintático"))
 
-            self.ast = parser.prog()
+            self.ast = parser.program()
 
             if not self.erro_handler.tem_erros_sintaticos:
                 self.logger.info("Análise sintática concluída com sucesso. AST gerada.")
@@ -42,7 +42,7 @@ class AnaliseSintatica:
             label = parser_rules[no.getRuleIndex()]
         elif hasattr(no, 'symbol'): # É um nó terminal (token)
             texto_escapado = no.getText().replace('"', '\\"')
-            token_name = BASIQuinhoParser.symbolicNames[no.symbol.type]
+            token_name = miniportugolParser.symbolicNames[no.symbol.type]
             label = f"{texto_escapado}\\n<Token: {token_name}>"
         else: # Outro tipo de nó (ex: ErrorNode)
             label = str(no.getText()).replace('"', '\\"')
@@ -64,7 +64,7 @@ class AnaliseSintatica:
             return
 
         try:
-            parser_temp = BASIQuinhoParser(None)
+            parser_temp = miniportugolParser(None)
             parser_rules = parser_temp.ruleNames
 
             dot_linhas = ['graph BASIQuinhoAST {', '  node [fontname="Arial" shape=box];', '  edge [arrowhead=none];']
