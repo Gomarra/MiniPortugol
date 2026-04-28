@@ -9,137 +9,140 @@ class GeracaoTAC:
         self.logger = logging.getLogger(self.__class__.__name__)
         self.codigo_tac = []
         self.contador_temporarias = 0
+        self.contador_labels = 0
 
     def _nova_temporaria(self) -> str:
         temp_nome = f"t{self.contador_temporarias}"
         self.contador_temporarias += 1
         return temp_nome
 
-    def _gerar_tac_expr_recursivo(self, expr_node_ctx) -> str:
-        node_text_for_log = expr_node_ctx.getText() if expr_node_ctx and hasattr(expr_node_ctx, 'getText') else 'CTX_EXPR_INVALIDO'
-        # Removido o log INFO inicial daqui para reduzir verbosidade, logs de casos específicos são mais úteis.
-        # self.logger.info(f"GER_TAC_EXPR: Entrando para '{node_text_for_log}', tipo de nó: {type(expr_node_ctx)}")
+    def _nova_label(self) -> str:
+        label = f"L{self.contador_labels}"
+        self.contador_labels += 1
+        return label
 
-        if isinstance(expr_node_ctx, miniportugolParser.NumberContext):
-            val = expr_node_ctx.NUMBER().getText()
-            self.logger.info(f"GER_TAC_EXPR: Number literal: {val}")
-            return val
-        
-        if isinstance(expr_node_ctx, miniportugolParser.StringContext):
-            val = expr_node_ctx.STRING().getText()
-            self.logger.info(f"GER_TAC_EXPR: String literal: {val}")
-            return val
-            
-        if isinstance(expr_node_ctx, miniportugolParser.VariableContext):
-            val = expr_node_ctx.ID().getText()
-            self.logger.info(f"GER_TAC_EXPR: Variable: {val}")
-            return val
-            
-        if isinstance(expr_node_ctx, miniportugolParser.ParenthesesContext):
-            self.logger.info(f"GER_TAC_EXPR: Parentheses, processando expr interna '{expr_node_ctx.expr().getText()}'...")
-            return self._gerar_tac_expr_recursivo(expr_node_ctx.expr())
+    def _gerar_tac_expr(self, ctx) -> str:
+        # Alternativas de fator
+        if isinstance(ctx, miniportugolParser.NUMEROContext):
+            return ctx.INT().getText()
 
-        if isinstance(expr_node_ctx, miniportugolParser.TermContext) or isinstance(expr_node_ctx, miniportugolParser.ExprContext):
-            children = expr_node_ctx.children
-            operando_esq_ctx = children[0]
-            operando_esq_nome = self._gerar_tac_expr_recursivo(operando_esq_ctx)
+        if isinstance(ctx, miniportugolParser.STRINGContext):
+            return ctx.STRING().getText()
 
-            num_operacoes = (len(children) - 1) // 2
-            for i in range(num_operacoes):
-                operador_node = children[i * 2 + 1]
-                operando_dir_ctx = children[i * 2 + 2]
-                operador = operador_node.getText()
-                operando_dir_nome = self._gerar_tac_expr_recursivo(operando_dir_ctx)
-                
-                if operando_esq_nome.startswith("ERRO_") or operando_dir_nome.startswith("ERRO_"):
-                    self.logger.error(f"GER_TAC_EXPR (op): Erro em um dos operandos para '{operador_node.getText()}' - Esq: {operando_esq_nome}, Dir: {operando_dir_nome}")
-                    # Se um operando já é um erro, o resultado da expressão inteira é um erro.
-                    # Retornar um erro específico ajuda a não gerar mais TAC para esta subárvore.
-                    return "ERRO_TAC_OPERAND" 
-                
-                temp_dest = self._nova_temporaria()
-                self.codigo_tac.append(f"{temp_dest} := {operando_esq_nome} {operador} {operando_dir_nome}")
-                self.logger.info(f"GER_TAC_EXPR (op): {temp_dest} := {operando_esq_nome} {operador} {operando_dir_nome}")
-                operando_esq_nome = temp_dest
-            return operando_esq_nome
+        if isinstance(ctx, miniportugolParser.VARIAVELContext):
+            return ctx.ID().getText()
 
-        if isinstance(expr_node_ctx, miniportugolParser.FactorContext):
-             if expr_node_ctx.getChildCount() == 1:
-                 return self._gerar_tac_expr_recursivo(expr_node_ctx.getChild(0))
+        if isinstance(ctx, miniportugolParser.PARENTESESContext):
+            return self._gerar_tac_expr(ctx.expr())
 
-        self.logger.error(f"GER_TAC_EXPR: Tipo de nó de expressão não suportado para TAC: {type(expr_node_ctx)} com texto '{node_text_for_log}'")
-        self.erro_handler.registrar_erro("Gerador TAC", 
-                                         expr_node_ctx.start.line if expr_node_ctx else 0, 
-                                         expr_node_ctx.start.column + 1 if expr_node_ctx else 0,
-                                         f"Tipo de expressão não suportado para TAC: {type(expr_node_ctx)}.", "TAC")
-        return "ERRO_TAC_EXPR_TYPE"
+        # FatorContext base (não deve acontecer se as alternativas acima cobrem tudo)
+        if isinstance(ctx, miniportugolParser.FatorContext):
+            if ctx.getChildCount() == 1:
+                return self._gerar_tac_expr(ctx.getChild(0))
+
+        # TermoContext e ExprContext têm a mesma estrutura: operando (op operando)*
+        if isinstance(ctx, (miniportugolParser.TermoContext, miniportugolParser.ExprContext)):
+            children = ctx.children
+            resultado = self._gerar_tac_expr(children[0])
+            num_ops = (len(children) - 1) // 2
+            for i in range(num_ops):
+                operador = children[i * 2 + 1].getText()
+                direito = self._gerar_tac_expr(children[i * 2 + 2])
+                temp = self._nova_temporaria()
+                self.codigo_tac.append(f"{temp} := {resultado} {operador} {direito}")
+                resultado = temp
+            return resultado
+
+        self.logger.error(f"GER_TAC_EXPR: tipo não suportado: {type(ctx)} → '{ctx.getText()}'")
+        return "ERRO_TAC"
+
+    def _gerar_tac_condicao(self, ctx: miniportugolParser.CondicaoContext) -> str:
+        """Gera TAC para uma condição e retorna o nome da temporária com o resultado."""
+        esq = self._gerar_tac_expr(ctx.expr(0))
+        op  = ctx.expr_condicionais().getText()  # ==, !=, >, <, &&, ||
+        dir = self._gerar_tac_expr(ctx.expr(1))
+        temp = self._nova_temporaria()
+        # Se o operador for vazio (alternativa 1 da gramática), trata como expressão simples
+        if op == "":
+            return esq
+        self.codigo_tac.append(f"{temp} := {esq} {op} {dir}")
+        return temp
+
+    def _gerar_tac_bloco(self, ctx: miniportugolParser.BlocoContext):
+        for lista_cmd in ctx.lista_comandos():
+            self._gerar_tac_lista_comandos(lista_cmd)
+
+    def _gerar_tac_lista_comandos(self, ctx: miniportugolParser.Lista_comandosContext):
+        filho = ctx.getChild(0)
+
+        if isinstance(filho, miniportugolParser.Comando_escrevaContext):
+            val = self._gerar_tac_expr(filho.expr())
+            self.codigo_tac.append(f"PRINT {val}")
+            self.logger.info(f"TAC: PRINT {val}")
+
+        elif isinstance(filho, miniportugolParser.Comando_lerContext):
+            var = filho.ID().getText()
+            self.codigo_tac.append(f"INPUT {var}")
+            self.logger.info(f"TAC: INPUT {var}")
+
+        elif isinstance(filho, miniportugolParser.Comando_definirContext):
+            var = filho.ID().getText()
+            val = self._gerar_tac_expr(filho.expr(0))
+            self.codigo_tac.append(f"{var} := {val}")
+            self.logger.info(f"TAC: {var} := {val}")
+
+        elif isinstance(filho, miniportugolParser.Comando_seContext):
+            cond = self._gerar_tac_condicao(filho.condicao())
+            label_falso = self._nova_label()
+            label_fim   = self._nova_label()
+
+            self.codigo_tac.append(f"IF_FALSE {cond} GOTO {label_falso}")
+            self._gerar_tac_bloco(filho.bloco(0))
+
+            if filho.SENAO():
+                self.codigo_tac.append(f"GOTO {label_fim}")
+                self.codigo_tac.append(f"{label_falso}:")
+                self._gerar_tac_bloco(filho.bloco(1))
+                self.codigo_tac.append(f"{label_fim}:")
+            else:
+                self.codigo_tac.append(f"{label_falso}:")
+
+        elif isinstance(filho, miniportugolParser.Comando_enquantoContext):
+            label_inicio = self._nova_label()
+            label_fim    = self._nova_label()
+
+            self.codigo_tac.append(f"{label_inicio}:")
+            cond = self._gerar_tac_condicao(filho.condicao())
+            self.codigo_tac.append(f"IF_FALSE {cond} GOTO {label_fim}")
+            self._gerar_tac_bloco(filho.bloco())
+            self.codigo_tac.append(f"GOTO {label_inicio}")
+            self.codigo_tac.append(f"{label_fim}:")
+
+        else:
+            self.logger.warning(f"TAC: comando não suportado: {type(filho)}")
 
     def gerarCodigoTAC(self, ast_validada):
-        self.logger.info("Iniciando geração de Código de Três Endereços (TAC)...")
+        self.logger.info("Iniciando geração de TAC...")
         if not ast_validada or self.erro_handler.houve_erro_fatal():
-            self.logger.error("AST validada não fornecida ou erros anteriores impedem geração de TAC.")
             return None
+
         self.codigo_tac = []
         self.contador_temporarias = 0
+        self.contador_labels = 0
 
         try:
-            for stmt_geral_ctx in ast_validada.stmt(): 
-                ctx_da_label = stmt_geral_ctx.getChild(0) # Este é o contexto da Label (ex: PrintStmtContext)
-                
-                self.logger.info(f"GER_TAC_STMT_DEBUG: Processando statement. Tipo do ctx_da_label: {type(ctx_da_label)}")
+            # declaracoes de variável não geram TAC (só reservam espaço)
+            for lista_cmd in ast_validada.lista_comandos():
+                self._gerar_tac_lista_comandos(lista_cmd)
 
-                if isinstance(ctx_da_label, miniportugolParser.InputStmtContext):
-                    # ctx_da_label JÁ É o InputStmtContext (contexto da regra inputStmt)
-                    var_nome = ctx_da_label.ID().getText() # Acesso direto
-                    self.codigo_tac.append(f"INPUT {var_nome}")
-                    self.logger.info(f"TAC: INPUT {var_nome}")
-
-                elif isinstance(ctx_da_label, miniportugolParser.PrintStmtContext):
-                    # ctx_da_label JÁ É o PrintStmtContext (contexto da regra printStmt)
-                    # Acessamos exprList diretamente dele
-                    if hasattr(ctx_da_label, 'exprList') and ctx_da_label.exprList() and hasattr(ctx_da_label.exprList(), 'expr'):
-                        for expr_item_ctx in ctx_da_label.exprList().expr():
-                            val_expr_tac = self._gerar_tac_expr_recursivo(expr_item_ctx)
-                            if val_expr_tac.startswith("ERRO_"):
-                                 self.logger.error(f"TAC: Erro ao gerar TAC para expressão em PRINT: {expr_item_ctx.getText()}")
-                            else:
-                                self.codigo_tac.append(f"PRINT {val_expr_tac}")
-                                self.logger.info(f"TAC: PRINT {val_expr_tac}")
-                    else:
-                        self.logger.error(f"TAC: Estrutura inesperada para PrintStmtContext, exprList não encontrada: {ctx_da_label.getText()}")
-                        self.erro_handler.registrar_erro("Gerador TAC", ctx_da_label.start.line, ctx_da_label.start.column + 1, "Estrutura interna do PRINT inválida para TAC.", "TAC")
-
-                
-                elif isinstance(ctx_da_label, miniportugolParser.LetStmtContext):
-                    # ctx_da_label JÁ É o LetStmtContext (contexto da regra letStmt)
-                    var_nome = ctx_da_label.ID().getText() # Acesso direto
-                    expr_node_atribuicao = ctx_da_label.expr() # Acesso direto
-                    
-                    val_expr_tac = self._gerar_tac_expr_recursivo(expr_node_atribuicao)
-                    if val_expr_tac.startswith("ERRO_"):
-                        self.logger.error(f"TAC: Erro ao gerar TAC para expressão em LET {var_nome}: {expr_node_atribuicao.getText()}")
-                    else:
-                        self.codigo_tac.append(f"{var_nome} := {val_expr_tac}")
-                        self.logger.info(f"TAC: {var_nome} := {val_expr_tac}")
-                else:
-                    self.logger.warning(f"Geração TAC não implementada para o tipo de statement (label context): {type(ctx_da_label)} com texto '{ctx_da_label.getText() if hasattr(ctx_da_label, 'getText') else 'N/A'}'")
-        
         except Exception as e:
             self.erro_handler.registrar_erro("Gerador TAC", 0, 0, f"Erro inesperado na geração TAC: {e}", "TAC")
-            self.logger.exception("Detalhes da exceção na geração TAC:")
+            self.logger.exception("Detalhes:")
             return None
 
-        if not self.erro_handler.tem_erros_tac:
-            self.logger.info("Geração de TAC concluída.")
-        else:
-            self.logger.error("Geração de TAC encontrou erros.")
-        
         self.logger.info("--- Código TAC Gerado ---")
-        if not self.codigo_tac:
-            self.logger.info("  (Nenhum código TAC gerado)")
-        else:
-            for instrucao_idx, instrucao in enumerate(self.codigo_tac):
-                self.logger.info(f"  {instrucao_idx}: {instrucao}")
+        for i, instrucao in enumerate(self.codigo_tac):
+            self.logger.info(f"  {i}: {instrucao}")
         self.logger.info("-------------------------")
-        
+
         return self.codigo_tac

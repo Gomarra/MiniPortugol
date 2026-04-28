@@ -5,6 +5,17 @@ import re
 import datetime
 
 class GeracaoLLVM:
+    def _get_var_ptr(self, var_name_miniportugol: str, llvm_type: str = "i32") -> str:
+        """
+        Garante que a variável está alocada e retorna o ponteiro LLVM para ela.
+        Se não existir, aloca usando o tipo informado.
+        """
+        alloc_instr = self._get_var_alloc_instruction(var_name_miniportugol, llvm_type)
+        # Se for uma nova alocação, adiciona ao início do main_body_instructions
+        if alloc_instr and alloc_instr.startswith("%ptr") and alloc_instr not in self.main_body_instructions:
+            self.main_body_instructions.insert(0, alloc_instr)
+        return self.var_map[var_name_miniportugol]["ptr_llvm"]
+    
     def __init__(self, erro_handler: Erro):
         self.erro_handler = erro_handler
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -161,9 +172,39 @@ class GeracaoLLVM:
                     comando_ou_destino = comando_ou_destino.strip() # Este é o destino da atribuição
                     partes_rhs = [expressao_str.strip()] # O RHS completo é o primeiro elemento
                 else:
-                    self.logger.error(f"Formato de instrução TAC não reconhecido: {instrucao_tac}")
-                    self.erro_handler.registrar_erro("Gerador LLVM",0,0,f"Formato TAC irreconhecível: {instrucao_tac}", "LLVM")
-                    continue
+                    # Suporte a IF_FALSE t0 GOTO L0
+                    if instrucao_tac.startswith("IF_FALSE "):
+                        # Exemplo: IF_FALSE t0 GOTO L0
+                        partes = instrucao_tac.split()
+                        if len(partes) == 4 and partes[2] == "GOTO":
+                            temp_var = partes[1]
+                            label_dest = partes[3]
+                            # temp_var deve ser i32 (0 = falso, !=0 = verdadeiro)
+                            # LLVM: br i1 <cond>, label <iftrue>, label <iffalse>
+                            # Precisamos comparar se temp_var == 0
+                            cmp_reg = self._nova_reg()
+                            self.main_body_instructions.append(f"  {cmp_reg} = icmp eq i32 %{temp_var}, 0")
+                            self.main_body_instructions.append(f"  br i1 {cmp_reg}, label %{label_dest}, label %NEXT_{label_dest}")
+                        else:
+                            self.logger.error(f"Formato IF_FALSE inválido: {instrucao_tac}")
+                            self.erro_handler.registrar_erro("Gerador LLVM",0,0,f"Formato IF_FALSE inválido: {instrucao_tac}", "LLVM")
+                        continue
+                    # Suporte a GOTO L1
+                    elif instrucao_tac.startswith("GOTO "):
+                        label_dest = instrucao_tac.split()[1]
+                        self.main_body_instructions.append(f"  br label %{label_dest}")
+                        continue
+                    # Suporte a rótulos L0: ou L1:
+                    elif instrucao_tac.endswith(":") and instrucao_tac[:-1].replace("_","").isalnum():
+                        label = instrucao_tac[:-1]
+                        self.main_body_instructions.append(f"{label}:")
+                        # Para o branch condicional, o destino falso precisa de um label intermediário
+                        self.main_body_instructions.append(f"NEXT_{label}:")
+                        continue
+                    else:
+                        self.logger.error(f"Formato de instrução TAC não reconhecido: {instrucao_tac}")
+                        self.erro_handler.registrar_erro("Gerador LLVM",0,0,f"Formato TAC irreconhecível: {instrucao_tac}", "LLVM")
+                        continue
 
                 if comando_ou_destino == "INPUT":
                     var_nome_miniportugol = partes_rhs[0]
