@@ -1,0 +1,21 @@
+INT n, i, j, valor;
+escreva("Digite o valor de n: ");
+leia(n);
+se(n < 1){
+    escreva("Valor inválido");
+}
+senao{
+    i = 0;
+    enquanto(i < n){
+        valor = 1;
+        j = 0;
+        enquanto(j < i + 1){
+            escreva(valor);
+            escreva(" ");
+            valor = valor * (i - j) / (j + 1);
+            j = j + 1;
+        }
+        escreva("\n");
+        i = i + 1;
+    }
+}

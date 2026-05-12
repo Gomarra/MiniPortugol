@@ -1,0 +1,58 @@
+INT a;
+INT b;
+INT c;
+escreva("Digite os lados a, b e c: ");
+leia(a);
+leia(b);
+leia(c);
+se(a < 1){
+    escreva("Medidas inválidas");
+}
+senao{
+    se(b < 1){
+        escreva("Medidas inválidas");
+    }
+    senao{
+        se(c < 1){
+            escreva("Medidas inválidas");
+        }
+        senao{
+            se(a + b > c){
+                se(a + c > b){
+                    se(b + c > a){
+                        se(a == b){
+                            se(b == c){
+                                escreva("Triângulo equilátero válido");
+                            }
+                            senao{
+                                escreva("Triângulo isósceles válido");
+                            }
+                        }
+                        senao{
+                            se(a == c){
+                                escreva("Triângulo isósceles válido");
+                            }
+                            senao{
+                                se(b == c){
+                                    escreva("Triângulo isósceles válido");
+                                }
+                                senao{
+                                    escreva("Triângulo escaleno válido");
+                                }
+                            }
+                        }
+                    }
+                    senao{
+                        escreva("Medidas inválidas");
+                    }
+                }
+                senao{
+                    escreva("Medidas inválidas");
+                }
+            }
+            senao{
+                escreva("Medidas inválidas");
+            }
+        }
+    }
+}
